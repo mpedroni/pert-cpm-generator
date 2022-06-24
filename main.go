@@ -1,6 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+)
 
 type TimeSlice struct {
 	Start uint
@@ -51,7 +56,30 @@ func (t *Task) SetDeadline(end uint) {
 }
 
 func (t *Task) Slack() uint {
-	return t.Time.Start - t.Deadline.Start
+	return t.Deadline.Start - t.Time.Start
+}
+
+func (t *Task) Print() {
+	fmt.Println("#----------------")
+	fmt.Println("| Tarefa:", t.ID)
+	fmt.Println("| Duração:", t.Duration)
+	fmt.Println("| Tempo Mínimo")
+	fmt.Println("|    - Inicial:", t.Time.Start)
+	fmt.Println("|    - Final:", t.Time.End)
+	fmt.Println("| Tempo Máximo")
+	fmt.Println("|    - Inicial:", t.Deadline.Start)
+	fmt.Println("|    - Final:", t.Deadline.End)
+	fmt.Println("| Folga: ", t.Slack())
+
+	if len(t.Dependencies) == 0 {
+		fmt.Println("| Sem precedentes")
+	} else {
+		fmt.Println("| Precedentes")
+		for _, d := range t.Dependencies {
+			fmt.Println("|    -", d.ID)
+		}
+	}
+	fmt.Println("#----------------")
 }
 
 func NewTask(ID string, duration uint) Task {
@@ -149,57 +177,126 @@ func (p *Project) GetCriticalPath() []*Task {
 	return path
 }
 
+func (p *Project) Print() {
+	for _, t := range p.Tasks {
+		t.Print()
+		fmt.Println()
+	}
+}
+
+func (p *Project) PrintCriticalPath() {
+	fmt.Print("Caminho crítico: ")
+	for i, t := range p.GetCriticalPath() {
+		if i != 0 {
+			fmt.Print(" -> ")
+		}
+		fmt.Print(t.ID)
+	}
+}
+
+func getPredefinedTasks(list string) []*Task {
+	if list == "a" {
+		A := NewTask("A", 6)
+		B := NewTask("B", 2)
+		C := NewTask("C", 3)
+		D := NewTask("D", 10)
+		D.AddDependency(&A)
+		E := NewTask("E", 3)
+		E.AddDependency(&A)
+		F := NewTask("F", 2)
+		F.AddDependency(&B)
+		G := NewTask("G", 4)
+		G.AddDependency(&C)
+		H := NewTask("H", 5)
+		H.AddDependency(&E)
+		I := NewTask("I", 8)
+		I.AddDependency(&F)
+		I.AddDependency(&G)
+		J := NewTask("J", 6)
+		J.AddDependency(&G)
+		K := NewTask("K", 4)
+		K.AddDependency(&I)
+		L := NewTask("L", 2)
+		L.AddDependency(&J)
+
+		return []*Task{&A, &B, &C, &D, &E, &F, &G, &H, &I, &J, &K, &L}
+	}
+
+	A := NewTask("1", 10)
+	B := NewTask("2", 4)
+	B.AddDependency(&A)
+	C := NewTask("3", 7)
+	C.AddDependency(&A)
+	D := NewTask("4", 5)
+	D.AddDependency(&C)
+	E := NewTask("5", 5)
+	E.AddDependency(&B)
+	E.AddDependency(&D)
+	F := NewTask("6", 3)
+	F.AddDependency(&C)
+	return []*Task{&A, &B, &C, &D, &E, &F}
+}
+
 func main() {
 	var project Project
 
-	A := NewTask("A", 6)
-	B := NewTask("B", 2)
-	C := NewTask("C", 3)
-	D := NewTask("D", 10)
-	D.AddDependency(&A)
-	E := NewTask("E", 3)
-	E.AddDependency(&A)
-	F := NewTask("F", 2)
-	F.AddDependency(&B)
-	G := NewTask("G", 4)
-	G.AddDependency(&C)
-	H := NewTask("H", 5)
-	H.AddDependency(&E)
-	I := NewTask("I", 8)
-	I.AddDependency(&F)
-	I.AddDependency(&G)
-	J := NewTask("J", 6)
-	J.AddDependency(&G)
-	K := NewTask("K", 4)
-	K.AddDependency(&I)
-	L := NewTask("L", 2)
-	L.AddDependency(&J)
+	key := ""
+	scanner := bufio.NewScanner(os.Stdin)
 
-	project.AddTask(&A)
-	project.AddTask(&B)
-	project.AddTask(&C)
-	project.AddTask(&D)
-	project.AddTask(&E)
-	project.AddTask(&F)
-	project.AddTask(&G)
-	project.AddTask(&H)
-	project.AddTask(&I)
-	project.AddTask(&J)
-	project.AddTask(&K)
-	project.AddTask(&L)
+	for {
+		fmt.Println("Aperte 't' para adicionar uma tarefa, 'q' para prosseguir ou 'd' para usar uma das listas de tarefas pré definidas")
+		fmt.Print("> ")
+		fmt.Scanf("%s", &key)
+		key = strings.ToLower(key)
+		if key == "q" || key == "d" {
+			break
+		}
+
+		var t Task
+		fmt.Println("\nDigite o nome da tarefa")
+		fmt.Print("> ")
+		fmt.Scanf("%s", &t.ID)
+
+		fmt.Println("Digite a duração da tarefa")
+		fmt.Print("> ")
+		fmt.Scanf("%d", &t.Duration)
+
+		fmt.Println("Digite a lista de precedentes da tarefa. Ex: A D E")
+		fmt.Print("> ")
+		scanner.Scan()
+		s := scanner.Text()
+		dependencies := strings.Split(s, " ")
+
+		if len(dependencies) > 0 {
+			for _, id := range dependencies {
+				for _, d := range project.Tasks {
+					if d.ID == id {
+						t.AddDependency(d)
+					}
+				}
+			}
+		}
+
+		project.AddTask(&t)
+	}
+
+	for key == "d" {
+		fmt.Println("Deseja usar a lista de tarefas A ou B?")
+		fmt.Print("> ")
+		fmt.Scanf("%s", &key)
+		key = strings.ToLower(key)
+		if key == "a" || key == "b" {
+			tasks := getPredefinedTasks(key)
+			project.Tasks = tasks
+			break
+		}
+		key = "d"
+	}
 
 	project.SetTimes()
 	project.SetDeadlines()
 
-	for _, task := range project.Tasks {
-		fmt.Println(task.ID, task.Duration, task.Time, task.Deadline)
-	}
-
-	fmt.Print("\n\n")
-
-	for _, task := range project.GetCriticalPath() {
-		fmt.Println(task.ID, task.Duration, task.Time, task.Deadline)
-	}
-
-	// fmt.Println(project.Time)
+	project.Print()
+	project.PrintCriticalPath()
+	fmt.Printf("\nTempo final do projeto: %d\n", project.GetHigherTaskTimeEnd())
 }
